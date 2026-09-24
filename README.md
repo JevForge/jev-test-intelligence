@@ -233,6 +233,7 @@ Optional:
 | --- | --- |
 | `comment_on_github: true` | `pull-requests: write` |
 | `create_check_run: true` | `checks: write` |
+| `include_history: true` (Actions API) | `actions: read` |
 
 ## Inputs
 
@@ -250,10 +251,11 @@ Optional:
 | `min_confidence` | no | `0.7` (or config) | Minimum confidence before skips are trusted |
 | `low_confidence_policy` | no | `warn` (or config) | `fail` \| `warn` \| `request-review` \| `no-op` |
 | `force_full_suite` | no | `false` | Select every allowlisted group |
-| `include_history` | no | `false` | Read `.jev/test-history.json` for reruns |
+| `include_history` | no | `false` | Read history file + recent GitHub Actions failures |
 | `history_path` | no | `.jev/test-history.json` | History file path |
 | `history_lookback` | no | config / `10` | 1–20 recent runs |
 | `history_branch` | no | _(empty)_ | Limit history to one branch |
+| `history_group_id_map` | no | _(empty)_ | JSON map of Actions job display name → group id |
 | `coverage_path` | no | _(empty)_ | Coverage JSON for gap detection |
 | `coverage_threshold` | no | `0.8` | Line coverage ratio 0–1 |
 | `discover_frameworks` | no | `true` | Discover test frameworks as evidence |

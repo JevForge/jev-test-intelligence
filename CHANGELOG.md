@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file.
 
 * (pending next releases)
 
+## [0.1.3] — TBD
+
+### Added
+
+* When `include_history` is true, merge recent GitHub Actions failures into history evidence (in addition to `.jev/test-history.json`).
+* Input `history_group_id_map` to map Actions job display names to allowlisted group ids.
+
 ## [0.1.2] — TBD
 
 ### Fixed
