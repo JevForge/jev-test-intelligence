@@ -260,7 +260,7 @@ Optional:
 | `frameworks` | no | _(all)_ | Comma-separated adapter allowlist |
 | `require_path_hits` | no | `true` | Always keep path-matching groups |
 | `decision_mode` | no | `jev` | `jev` \| `deterministic` |
-| `cache_decisions` | no | `false` | Cache typed decisions in the workspace |
+| `cache_decisions` | no | `false` | Restore/save typed decisions via GitHub Actions cache |
 | `comment_on_github` | no | `false` | Upsert PR comment |
 | `create_check_run` | no | `false` | Create Check Run |
 | `telemetry` | no | `false` | Structured duration log (no secrets/paths) |

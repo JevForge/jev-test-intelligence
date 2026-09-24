@@ -95,7 +95,7 @@ inputs:
     required: false
     default: jev
   cache_decisions:
-    description: When true, restore/save the typed decision via a workspace cache keyed by commit SHA, config, paths, provider, and decision_mode.
+    description: When true, restore/save the typed decision via the GitHub Actions cache (keyed by commit SHA, config, paths, provider, and decision_mode).
     required: false
     default: 'false'
   comment_on_github:

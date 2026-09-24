@@ -6,7 +6,7 @@ import { createJevProvider, credentialEnvName } from '../src/jev/factory.js';
 import { decisionFromEvaluation, unavailableDecision } from '../src/jev/normalize.js';
 import { executeIntelligence } from '../src/decision/execute.js';
 import { buildEvidence, buildGroupQuestions } from '../src/decision/evidence.js';
-import { buildCacheKey, fingerprintConfig, saveDecisionCache, tryRestoreDecisionCache } from '../src/decision/cache.js';
+import { buildCacheKey, fingerprintConfig } from '../src/decision/cache.js';
 import {
   parseBool,
   parseDecisionMode,
@@ -142,7 +142,6 @@ describe('coverage edges', () => {
     });
     expect(result.selectedGroups).toEqual(['unit']);
 
-    const dir = mkdtempSync(join(tmpdir(), 'jev-cache-'));
     const key = buildCacheKey({
       sha: 'abc123',
       configFingerprint: fingerprintConfig({
@@ -157,9 +156,7 @@ describe('coverage edges', () => {
       provider: 'vercel-ai-gateway',
       decisionMode: 'jev',
     });
-    await saveDecisionCache({ enabled: true, key, cacheDir: dir, result });
-    const restored = await tryRestoreDecisionCache({ enabled: true, key, cacheDir: dir });
-    expect(restored?.selectedGroups).toEqual(['unit']);
+    expect(key.startsWith('jev-ti-v1-')).toBe(true);
 
     expect(credentialEnvName('vercel-ai-gateway')).toBe('AI_GATEWAY_API_KEY');
     expect(credentialEnvName('typesafe-native')).toBe('TYPESAFE_API_KEY');
