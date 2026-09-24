@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+lib/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+*.tsbuildinfo
+.jev/.decision-cache/

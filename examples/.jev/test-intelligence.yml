@@ -1,0 +1,56 @@
+version: 1
+groups:
+  - id: unit
+    paths:
+      - src/**
+      - lib/**
+    needs: []
+    always: false
+    frameworks: [vitest, jest]
+    command: npm test -- --project unit
+    rerun_on_recent_failure: true
+  - id: integration
+    paths:
+      - src/api/**
+      - tests/integration/**
+    needs: [unit]
+    always: false
+    frameworks: [vitest]
+    command: npm run test:integration
+    rerun_on_recent_failure: true
+  - id: e2e
+    paths:
+      - src/ui/**
+      - e2e/**
+    needs: [unit]
+    always: false
+    frameworks: [playwright, cypress]
+    command: npx playwright test
+    rerun_on_recent_failure: false
+  - id: python
+    paths:
+      - python/**
+      - '**/*.py'
+    needs: []
+    always: false
+    frameworks: [pytest]
+    command: pytest
+  - id: java
+    paths:
+      - src/main/java/**
+      - src/test/java/**
+    needs: []
+    always: false
+    frameworks: [junit]
+    command: mvn test
+components:
+  - name: auth
+    paths:
+      - src/auth/**
+    groups: [unit, e2e]
+  - name: billing
+    paths:
+      - src/billing/**
+    groups: [unit, integration]
+history:
+  lookback: 10

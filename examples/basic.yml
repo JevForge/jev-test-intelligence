@@ -1,0 +1,42 @@
+name: Selective tests with JEV Test Intelligence
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      groups: ${{ steps.ti.outputs.selected_test_groups }}
+      full: ${{ steps.ti.outputs.full_suite }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select test groups
+        id: ti
+        uses: JevForge/jev-test-intelligence@v0
+        with:
+          config_path: .jev/test-intelligence.yml
+          decision_mode: deterministic
+          dry_run: 'true'
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+
+  unit:
+    needs: select
+    if: contains(fromJSON(needs.select.outputs.groups), 'unit')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm ci && npm test
+
+  e2e:
+    needs: select
+    if: contains(fromJSON(needs.select.outputs.groups), 'e2e')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx playwright test

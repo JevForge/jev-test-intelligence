@@ -1,0 +1,170 @@
+name: JEV Test Intelligence
+description: Select which allowlisted test groups to run after a change. Jev decides; your workflow stays in control.
+author: JevForge
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  config_path:
+    description: Path to the test intelligence config with group allowlist, path globs, and components.
+    required: false
+    default: .jev/test-intelligence.yml
+  changed_paths:
+    description: Newline-separated list or JSON array of changed repo-relative paths. Empty collects paths from the GitHub event.
+    required: false
+    default: ''
+  group_map:
+    description: Optional JSON array that replaces the groups in the config file.
+    required: false
+    default: ''
+  component_map:
+    description: Optional JSON array that replaces the components in the config file.
+    required: false
+    default: ''
+  jev_provider:
+    description: 'Jev provider: vercel-ai-gateway, typesafe-native, or custom-compatible. Defaults to vercel-ai-gateway.'
+    required: false
+    default: ''
+  jev_model:
+    description: Model id. vercel-ai-gateway defaults to typesafe-ai/jev. Native and custom providers require a catalog model id.
+    required: false
+    default: ''
+  jev_endpoint:
+    description: HTTPS endpoint for typesafe-native or custom-compatible. Workflow inputs are trusted; repository config is not, unless trust_repo_jev_endpoint is true.
+    required: false
+    default: ''
+  jev_timeout_ms:
+    description: Provider timeout in milliseconds, from 1000 to 120000.
+    required: false
+    default: '45000'
+  jev_config_path:
+    description: Shared Jev config path.
+    required: false
+    default: .jev/config.yml
+  min_confidence:
+    description: Minimum confidence required before a SELECT_GROUPS result can skip groups.
+    required: false
+    default: ''
+  low_confidence_policy:
+    description: 'Policy when Jev is unavailable, rejected, or below min_confidence: fail, warn, request-review, or no-op.'
+    required: false
+    default: ''
+  force_full_suite:
+    description: When true, select every allowlisted group (safe full suite) without relying on Jev skips.
+    required: false
+    default: 'false'
+  include_history:
+    description: Read .jev/test-history.json and re-select groups that failed recently when configured.
+    required: false
+    default: 'false'
+  history_path:
+    description: JSON file of recent test runs used as history evidence.
+    required: false
+    default: .jev/test-history.json
+  history_lookback:
+    description: Maximum history runs to consider, from 1 to 20.
+    required: false
+    default: ''
+  history_branch:
+    description: Only count history runs for this branch. Empty counts every run in the file.
+    required: false
+    default: ''
+  coverage_path:
+    description: Optional Istanbul-style or files-map coverage JSON used to detect coverage gaps on changed paths.
+    required: false
+    default: ''
+  coverage_threshold:
+    description: Minimum line coverage ratio (0..1) before a changed file is treated as a coverage gap.
+    required: false
+    default: '0.8'
+  discover_frameworks:
+    description: Discover Jest, Vitest, Pytest, JUnit, Playwright, and Cypress inventory as evidence.
+    required: false
+    default: 'true'
+  frameworks:
+    description: Comma-separated adapter allowlist. Empty enables all supported frameworks.
+    required: false
+    default: ''
+  require_path_hits:
+    description: Keep groups whose configured paths match the diff even if Jev would skip them.
+    required: false
+    default: 'true'
+  decision_mode:
+    description: 'jev (default) asks Jev; deterministic selects from path hits, always-on, history, and components without calling Jev.'
+    required: false
+    default: jev
+  cache_decisions:
+    description: When true, restore/save the typed decision via a workspace cache keyed by commit SHA, config, paths, provider, and decision_mode.
+    required: false
+    default: 'false'
+  comment_on_github:
+    description: When true on pull_request events, upsert an idempotent PR comment marked <!-- jev-test-intelligence -->. Requires pull-requests: write.
+    required: false
+    default: 'false'
+  create_check_run:
+    description: When true, create a completed Check Run named JEV Test Intelligence. Requires checks: write.
+    required: false
+    default: 'false'
+  telemetry:
+    description: When true, emit a structured JSON info log with duration_ms, provider, provisional, selected_count, and cache_hit (no paths or secrets).
+    required: false
+    default: 'false'
+  trust_repo_jev_endpoint:
+    description: Allow jev_endpoint from repository config to receive credentials. Leave false unless that file is protected.
+    required: false
+    default: 'false'
+  token:
+    description: Token used only to read pull request files.
+    required: false
+    default: ${{ github.token }}
+  dry_run:
+    description: When true (default), emit outputs and summaries but do not fail the step on policy fail. When false, policy fail fails the step. The action never executes tests.
+    required: false
+    default: 'true'
+
+outputs:
+  decision:
+    description: 'SELECT_GROUPS, RUN_ALL, ABSTAIN, or REQUEST_REVIEW.'
+  selected_test_groups:
+    description: JSON array of allowlisted group ids to run, in config order.
+  skipped_test_groups:
+    description: JSON array of allowlisted group ids to skip, in config order.
+  selected_test_groups_csv:
+    description: Comma-separated selected groups. Prefer the JSON output with fromJSON.
+  skipped_test_groups_csv:
+    description: Comma-separated skipped groups. Prefer the JSON output with fromJSON.
+  confidence:
+    description: Jev confidence from 0 to 1. Policy overrides do not invent a higher value.
+  reason_codes:
+    description: JSON array of stable reason codes.
+  summary:
+    description: Plain-text explanation. It is not a command and must not be executed.
+  provisional:
+    description: 'true when the selection came from deterministic policy rather than a trusted Jev selection.'
+  needs_review:
+    description: 'true when the request-review policy applied.'
+  affected_paths:
+    description: JSON array of normalized changed paths collected by the action.
+  history_applied:
+    description: JSON array of allowlisted groups added because they failed in recent history.
+  frameworks_detected:
+    description: JSON array of discovered framework ids.
+  coverage_gaps:
+    description: JSON array of changed paths with missing or below-threshold coverage.
+  commands:
+    description: JSON map of group id to configured command string. For humans/workflows only — never executed by this action.
+  matrix:
+    description: JSON object for strategy.matrix — {"include":[{"group":"unit"},...]}.
+  if_snippets:
+    description: JSON map of group id to a suggested if: expression using fromJSON(selected_test_groups).
+  jev_provider:
+    description: Provider that was asked. The action never falls back to a different provider.
+  cache_hit:
+    description: 'true when the decision was restored from cache.'
+  full_suite:
+    description: 'true when every allowlisted group was selected.'
+
+runs:
+  using: node24
+  main: dist/index.js

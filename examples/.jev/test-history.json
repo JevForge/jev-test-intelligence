@@ -1,0 +1,14 @@
+{
+  "runs": [
+    {
+      "head_branch": "main",
+      "conclusion": "failure",
+      "failed_groups": ["unit", "integration"]
+    },
+    {
+      "head_branch": "main",
+      "conclusion": "success",
+      "failed_groups": []
+    }
+  ]
+}

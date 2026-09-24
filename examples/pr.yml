@@ -1,0 +1,25 @@
+name: PR gate with Jev
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  intelligence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JevForge/jev-test-intelligence@v0
+        with:
+          jev_provider: vercel-ai-gateway
+          include_history: 'true'
+          discover_frameworks: 'true'
+          comment_on_github: 'true'
+          create_check_run: 'true'
+          dry_run: 'true'
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
