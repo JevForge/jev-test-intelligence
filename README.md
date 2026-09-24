@@ -94,7 +94,7 @@ The deterministic executor still owns the effect: allowlist, path hits, componen
 
 ## Quick Start
 
-1. Copy [`examples/.jev/test-intelligence.yml`](examples/.jev/test-intelligence.yml) to `.jev/test-intelligence.yml` in your consumer repo.
+1. Copy [`examples/.jev/test-intelligence.yml`](examples/.jev/test-intelligence.yml) to `.jev/test-intelligence.yml` in your consumer repo. Protect it with CODEOWNERS (see [`examples/CODEOWNERS`](examples/CODEOWNERS) and [`examples/branch-protection.md`](examples/branch-protection.md)).
 2. Add repository secret `AI_GATEWAY_API_KEY` (default provider). Skip this step only if you use `decision_mode: deterministic`.
 3. Add a workflow (see [`examples/basic.yml`](examples/basic.yml)):
 
