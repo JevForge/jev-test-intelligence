@@ -11,7 +11,7 @@ Running every suite on every PR burns minutes and money. Letting an unconstraine
 
 ```yaml
 - id: ti
-  uses: JevForge/jev-test-intelligence@v0
+  uses: JevForge/jev-test-intelligence@v0.1.7
   env:
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
@@ -20,7 +20,7 @@ Prefer less boilerplate? Use the composite wrapper (checkout + Test Intelligence
 
 ```yaml
 - id: ti
-  uses: JevForge/jev-test-intelligence/composite@v0
+  uses: JevForge/jev-test-intelligence/composite@v0.1.7
   env:
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
@@ -116,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 
@@ -129,7 +129,7 @@ jobs:
       - run: npm test
 ```
 
-Pin `@v0` for the floating major, `@v0.1.0` for a fixed release, or a commit SHA for the strongest supply-chain guarantee.
+Pin `@v0` for the floating major, `@v0.1.7` for this release, or a commit SHA for the strongest supply-chain guarantee.
 
 ## Complete Example
 
@@ -158,7 +158,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:
@@ -381,7 +381,7 @@ Logs are prefixed with `[JEV Test Intelligence]`.
 | Pin | Meaning |
 | --- | --- |
 | `@v0` | Floating major (moves with new `0.x` releases) |
-| `@v0.1.0` | Exact SemVer release |
+| `@v0.1.7` | Exact SemVer release |
 | `@<sha>` | Strongest supply-chain pin |
 
 Consumers use committed `dist/index.js` — they do not run `npm install` for this Action.

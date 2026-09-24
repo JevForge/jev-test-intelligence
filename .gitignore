@@ -10,11 +10,11 @@ lib/
 .jev/.decision-cache/
 
 # Local test, review, security, and agent reports
-test-results/
-playwright-report/
-.nyc_output/
-.grill/
-.start-feature/
-.test-feature/
-.security-check/
-.pre-pr/
+/test-results/
+/playwright-report/
+/.nyc_output/
+/.grill/
+/.start-feature/
+/.test-feature/
+/.security-check/
+/.pre-pr/

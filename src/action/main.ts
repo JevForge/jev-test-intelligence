@@ -229,8 +229,9 @@ async function run(io: ActionIO): Promise<void> {
   const lookback = parseLookback(input(io, 'history_lookback'), loaded.lookback);
   const history = await collectHistory(io, includeHistory, loaded.groups, lookback, timeoutMs);
   const components = buildComponentEvidence(changed.paths, loaded.components);
+  const monorepoPlan = parseMonorepoPlan(input(io, 'monorepo_plan'));
   const monorepo = buildMonorepoEvidence({
-    plan: parseMonorepoPlan(input(io, 'monorepo_plan')),
+    plan: monorepoPlan,
     components: loaded.components,
     groups: loaded.groups,
     allowlist: loaded.groups.map(group => group.id),
@@ -266,6 +267,7 @@ async function run(io: ActionIO): Promise<void> {
     paths: changed.paths,
     provider: settings.provider,
     decisionMode,
+    monorepoPlan,
   });
   const cacheDir = join(workspace, '.jev', '.decision-cache');
   let cacheHit = false;

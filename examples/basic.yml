@@ -19,7 +19,7 @@ jobs:
 
       - name: Select test groups
         id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         with:
           config_path: .jev/test-intelligence.yml
           # Use decision_mode: jev + AI_GATEWAY_API_KEY for typed Jev selection.

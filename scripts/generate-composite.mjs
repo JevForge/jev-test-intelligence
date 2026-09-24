@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import YAML from 'yaml';
 
 const src = YAML.parse(readFileSync('action.yml', 'utf8'));
+const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 const inputs = src.inputs;
 const outputs = Object.fromEntries(
   Object.entries(src.outputs).map(([key, value]) => [
@@ -34,7 +35,7 @@ const doc = {
       {
         name: 'Test Intelligence',
         id: 'ti',
-        uses: 'JevForge/jev-test-intelligence@v0',
+        uses: `JevForge/jev-test-intelligence@v${pkg.version}`,
         with: withInputs,
       },
     ],

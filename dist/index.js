@@ -101811,7 +101811,8 @@ function buildCacheKey(parts) {
       config: parts.configFingerprint,
       paths: [...parts.paths].sort(),
       provider: parts.provider,
-      mode: parts.decisionMode
+      mode: parts.decisionMode,
+      monorepoPlan: parts.monorepoPlan ?? null
     })
   ).digest("hex").slice(0, 24);
   const sha = parts.sha.replace(/[^a-fA-F0-9]/g, "").slice(0, 40) || "nosha";
@@ -102320,8 +102321,9 @@ async function run(io) {
   const lookback = parseLookback(input(io, "history_lookback"), loaded.lookback);
   const history = await collectHistory(io, includeHistory, loaded.groups, lookback, timeoutMs);
   const components = buildComponentEvidence(changed.paths, loaded.components);
+  const monorepoPlan = parseMonorepoPlan(input(io, "monorepo_plan"));
   const monorepo = buildMonorepoEvidence({
-    plan: parseMonorepoPlan(input(io, "monorepo_plan")),
+    plan: monorepoPlan,
     components: loaded.components,
     groups: loaded.groups,
     allowlist: loaded.groups.map((group) => group.id)
@@ -102351,7 +102353,8 @@ async function run(io) {
     }),
     paths: changed.paths,
     provider: settings.provider,
-    decisionMode
+    decisionMode,
+    monorepoPlan
   });
   const cacheDir = (0, import_node_path4.join)(workspace, ".jev", ".decision-cache");
   let cacheHit = false;

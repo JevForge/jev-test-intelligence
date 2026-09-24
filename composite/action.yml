@@ -252,7 +252,7 @@ runs:
         token: ${{ inputs.token }}
     - name: Test Intelligence
       id: ti
-      uses: JevForge/jev-test-intelligence@v0
+      uses: JevForge/jev-test-intelligence@v0.1.7
       with:
         config_path: ${{ inputs.config_path }}
         changed_paths: ${{ inputs.changed_paths }}

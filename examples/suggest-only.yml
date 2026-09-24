@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         with:
           decision_mode: deterministic
           telemetry: 'true'
