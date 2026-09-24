@@ -16,6 +16,15 @@ Running every suite on every PR burns minutes and money. Letting an unconstraine
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
 
+Prefer less boilerplate? Use the composite wrapper (checkout + Test Intelligence + re-exported outputs):
+
+```yaml
+- id: ti
+  uses: JevForge/jev-test-intelligence/composite@v0
+  env:
+    AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+```
+
 ## Features
 
 * Typed test-group selection powered by Jev (`experimental_evaluate`, not free-form generation)
