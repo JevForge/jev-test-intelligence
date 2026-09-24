@@ -99,6 +99,14 @@ npm run all   # typecheck + coverage + build
 
 Requires Node 24+. Consumers use `dist/index.js` (bundled); they do not run `npm install` for this Action.
 
+| Pin | Meaning |
+| --- | ------- |
+| `@v0` | Floating major (moves with new `0.x` releases) |
+| `@v0.1.0` | Exact SemVer release |
+| `@<sha>` | Strongest supply-chain pin |
+
+Marketplace listing notes: [docs/marketplace.md](docs/marketplace.md).
+
 ## License
 
 MIT
