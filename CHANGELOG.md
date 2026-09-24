@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file.
 
 * (pending next releases)
 
+## [0.1.4] — TBD
+
+### Added
+
+* Broader Action entrypoint tests (Jev unavailable, dry_run fail, telemetry, PR paths, comments, check runs, history).
+* Coverage thresholds raised toward Pathfinder parity (lines/statements/functions 80%, branches 65%).
+
 ## [0.1.3] â€” TBD
 
 ### Added
