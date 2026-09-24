@@ -115,7 +115,7 @@ inputs:
     required: false
     default: 'false'
   token:
-    description: Token used only to read pull request files.
+    description: GitHub token used only to list pull request / compare files. Prefer secrets.GITHUB_TOKEN; never print this value.
     required: false
     default: ${{ github.token }}
   dry_run:

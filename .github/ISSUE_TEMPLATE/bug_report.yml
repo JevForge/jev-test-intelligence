@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with JEV CI Pathfinder
+description: Report a problem with JEV Test Intelligence
 title: "[bug]: "
 labels: ["bug"]
 body:
@@ -32,15 +32,15 @@ body:
     id: version
     attributes:
       label: Action version
-      placeholder: v0.1.2
-      description: For example v0.1.2 or a commit SHA
+      placeholder: v0.1.0
+      description: For example v0.1.0, @v0, or a commit SHA
     validations:
       required: true
   - type: textarea
     id: decision
     attributes:
       label: Decision outputs
-      description: Paste decision, run_jobs, skip_jobs, confidence, reason_codes, and provisional when relevant.
+      description: Paste decision, selected_test_groups, skipped_test_groups, confidence, reason_codes, provisional, and full_suite when relevant.
       render: json
   - type: textarea
     id: workflow

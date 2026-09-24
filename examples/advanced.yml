@@ -1,0 +1,63 @@
+name: Advanced selective tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  select:
+    runs-on: ubuntu-latest
+    outputs:
+      groups: ${{ steps.ti.outputs.selected_test_groups }}
+      provisional: ${{ steps.ti.outputs.provisional }}
+      needs_review: ${{ steps.ti.outputs.needs_review }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: ti
+        uses: JevForge/jev-test-intelligence@v0
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+        with:
+          config_path: .jev/test-intelligence.yml
+          min_confidence: '0.75'
+          low_confidence_policy: warn
+          require_path_hits: 'true'
+          include_history: 'true'
+          discover_frameworks: 'true'
+          frameworks: vitest,playwright,pytest
+          # Set true on release branches when you must not skip any group.
+          force_full_suite: 'false'
+          dry_run: 'true'
+
+      - name: Warn on provisional full suite
+        if: steps.ti.outputs.provisional == 'true' && steps.ti.outputs.full_suite == 'true'
+        run: echo "Jev result was not trusted; full allowlist selected."
+
+  unit:
+    needs: select
+    if: contains(fromJSON(needs.select.outputs.groups), 'unit')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test
+
+  e2e:
+    needs: select
+    if: contains(fromJSON(needs.select.outputs.groups), 'e2e')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx playwright test
+
+  review-gate:
+    needs: select
+    if: needs.select.outputs.needs_review == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Manual review requested before relying on skipped groups."

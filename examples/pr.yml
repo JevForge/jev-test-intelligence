@@ -13,7 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: JevForge/jev-test-intelligence@v0
+
+      - id: ti
+        uses: JevForge/jev-test-intelligence@v0
+        env:
+          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:
           jev_provider: vercel-ai-gateway
           include_history: 'true'
@@ -21,5 +25,10 @@ jobs:
           comment_on_github: 'true'
           create_check_run: 'true'
           dry_run: 'true'
-        env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+
+      - name: Surface decision
+        run: |
+          echo "decision=${{ steps.ti.outputs.decision }}"
+          echo "confidence=${{ steps.ti.outputs.confidence }}"
+          echo "provisional=${{ steps.ti.outputs.provisional }}"
+          echo "selected=${{ steps.ti.outputs.selected_test_groups }}"

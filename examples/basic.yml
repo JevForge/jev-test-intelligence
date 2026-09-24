@@ -12,18 +12,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       groups: ${{ steps.ti.outputs.selected_test_groups }}
+      decision: ${{ steps.ti.outputs.decision }}
       full: ${{ steps.ti.outputs.full_suite }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Select test groups
         id: ti
         uses: JevForge/jev-test-intelligence@v0
         with:
           config_path: .jev/test-intelligence.yml
+          # Use decision_mode: jev + AI_GATEWAY_API_KEY for typed Jev selection.
           decision_mode: deterministic
           dry_run: 'true'
-        env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+
+      - name: Show selection
+        run: |
+          echo "decision=${{ steps.ti.outputs.decision }}"
+          echo "selected=${{ steps.ti.outputs.selected_test_groups }}"
+          echo "skipped=${{ steps.ti.outputs.skipped_test_groups }}"
 
   unit:
     needs: select
