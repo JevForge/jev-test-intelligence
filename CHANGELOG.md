@@ -4,11 +4,15 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-### Changed
+### Added
 
-* Expanded public README (Quick Start, complete example, input/output tables, authentication, permissions).
-* Aligned issue templates with JEV Test Intelligence (were still labeled CI Pathfinder).
-* Strengthened CONTRIBUTING and SECURITY docs for open-source consumers.
+* (pending next releases)
+
+## [0.1.2] — TBD
+
+### Fixed
+
+* `cache_decisions` now uses `@actions/cache` (restore/save) instead of a workspace-only JSON file that could not span jobs.
 
 ## [0.1.0] — 2026-09-24
 
