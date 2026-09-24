@@ -95728,6 +95728,98 @@ function annotateComponentHits(groups, mappedGroupIds) {
     componentHit: mapped.has(group.id)
   }));
 }
+function parseHistoryGroupIdMap(raw) {
+  if (!raw.trim()) return {};
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error("history_group_id_map is not valid JSON");
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("history_group_id_map must be a JSON object of name\u2192id");
+  }
+  const out = {};
+  for (const [name25, id] of Object.entries(parsed)) {
+    if (typeof id !== "string" || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(id)) {
+      throw new Error(`history_group_id_map has invalid group id for ${name25}`);
+    }
+    if (!name25 || name25.length > 128) throw new Error("history_group_id_map has an invalid job name key");
+    out[name25] = id;
+  }
+  return out;
+}
+function resolveFailedGroupIds(jobs, allowlist, nameToId) {
+  const failed = [];
+  for (const job of jobs) {
+    if (job.conclusion !== "failure" && job.conclusion !== "timed_out") continue;
+    const candidates = [
+      typeof job.name === "string" ? job.name : null,
+      typeof job.name === "string" ? nameToId[job.name] : null
+    ].filter((value) => typeof value === "string" && value.length > 0);
+    let chosen = null;
+    for (const candidate of candidates) {
+      if (allowlist.has(candidate) && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(candidate)) {
+        chosen = candidate;
+        break;
+      }
+    }
+    if (!chosen) {
+      const raw = typeof job.name === "string" ? job.name : "";
+      if (/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(raw) && allowlist.has(raw)) chosen = raw;
+    }
+    if (chosen) failed.push(chosen);
+  }
+  return [...new Set(failed)].slice(0, 64);
+}
+async function githubJson(fetchImpl, token, url, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "user-agent": "jev-test-intelligence",
+        "x-github-api-version": "2022-11-28"
+      },
+      signal: controller.signal
+    });
+    if (!response.ok) return { ok: false, status: response.status, body: null };
+    return { ok: true, status: response.status, body: await response.json() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function fetchActionHistory(input2) {
+  const owner = assertGithubName(input2.owner, "owner");
+  const repo = assertGithubName(input2.repo, "repo");
+  const lookback = Math.min(20, Math.max(1, input2.lookback));
+  const branch = safeBranch(input2.branch);
+  const allow = new Set(input2.allowlist ?? []);
+  const nameToId = input2.nameToId ?? {};
+  const query = new URLSearchParams({ per_page: String(lookback) });
+  if (branch) query.set("branch", branch);
+  const runsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs?${query.toString()}`;
+  const listed = await githubJson(input2.fetchImpl, input2.token, runsUrl, input2.timeoutMs);
+  if (!listed.ok) throw new Error(`GitHub Actions history request failed with HTTP ${listed.status}`);
+  const runs = listed.body?.workflow_runs ?? [];
+  const history = [];
+  for (const run2 of runs.slice(0, lookback)) {
+    if (!run2.id || run2.conclusion !== "failure" && run2.conclusion !== "timed_out") continue;
+    const jobsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${run2.id}/jobs?per_page=100`;
+    const jobsResponse = await githubJson(input2.fetchImpl, input2.token, jobsUrl, input2.timeoutMs);
+    if (!jobsResponse.ok) continue;
+    const jobs = jobsResponse.body?.jobs ?? [];
+    const failed = allow.size > 0 ? resolveFailedGroupIds(jobs, allow, nameToId) : jobs.filter((job) => (job.conclusion === "failure" || job.conclusion === "timed_out") && typeof job.name === "string").map((job) => job.name).filter((name25) => /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name25));
+    history.push({
+      head_branch: typeof run2.head_branch === "string" ? run2.head_branch : void 0,
+      conclusion: run2.conclusion === "timed_out" ? "timed_out" : "failure",
+      failed_groups: [...new Set(failed)].slice(0, 64)
+    });
+  }
+  return history;
+}
 
 // src/collectors/github-paths.ts
 async function listPullRequestFiles(input2) {
@@ -111723,7 +111815,7 @@ async function upsertIntelligenceComment(enabled, client, body) {
   await client.createComment(body);
   return "posted";
 }
-async function githubJson(fetchImpl, token, url, init) {
+async function githubJson2(fetchImpl, token, url, init) {
   const response = await fetchImpl(url, {
     ...init,
     headers: {
@@ -111756,7 +111848,7 @@ function createFetchCommentClient(input2) {
     async listComments() {
       const out = [];
       for (let page = 1; page <= 5; page += 1) {
-        const result = await githubJson(
+        const result = await githubJson2(
           input2.fetchImpl,
           input2.token,
           `${base}?per_page=100&page=${page}`
@@ -111774,7 +111866,7 @@ function createFetchCommentClient(input2) {
       return out;
     },
     async createComment(body) {
-      const result = await githubJson(input2.fetchImpl, input2.token, base, {
+      const result = await githubJson2(input2.fetchImpl, input2.token, base, {
         method: "POST",
         body: JSON.stringify({ body })
       });
@@ -111782,7 +111874,7 @@ function createFetchCommentClient(input2) {
     },
     async updateComment(id, body) {
       const url = `https://api.github.com/repos/${owner}/${repo}/issues/comments/${id}`;
-      const result = await githubJson(input2.fetchImpl, input2.token, url, {
+      const result = await githubJson2(input2.fetchImpl, input2.token, url, {
         method: "PATCH",
         body: JSON.stringify({ body })
       });
@@ -112005,19 +112097,45 @@ async function collectChangedPaths(io, timeoutMs) {
   }
   return { paths: [], truncated: false };
 }
-function collectHistory(io, enabled, groups, lookback) {
+async function collectHistory(io, enabled, groups, lookback, timeoutMs) {
   if (!enabled) return emptyHistory();
   const historyPath = input(io, "history_path") || ".jev/test-history.json";
   let runs = [];
+  let available = false;
   try {
     const fileRuns = loadHistoryFile(io.workspace, historyPath);
-    if (fileRuns == null) {
-      return { enabled: true, available: false, failedGroupCounts: {}, rerunIds: [] };
+    if (fileRuns != null) {
+      runs = fileRuns;
+      available = true;
     }
-    runs = fileRuns;
   } catch (error) {
     const message = error instanceof Error ? error.message : "history load failed";
     io.warning(redactSecrets(message));
+  }
+  const token = input(io, "token");
+  const allowlist = groups.map((group) => group.id);
+  const nameToId = parseHistoryGroupIdMap(input(io, "history_group_id_map"));
+  if (token && io.repo.owner && io.repo.repo) {
+    try {
+      const apiRuns = await fetchActionHistory({
+        fetchImpl: io.fetch,
+        token,
+        owner: io.repo.owner,
+        repo: io.repo.repo,
+        branch: safeBranch(input(io, "history_branch") || void 0),
+        lookback,
+        timeoutMs,
+        allowlist,
+        nameToId
+      });
+      runs = [...runs, ...apiRuns].slice(0, lookback);
+      available = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "history request failed";
+      io.warning(redactSecrets(message));
+    }
+  }
+  if (!available) {
     return { enabled: true, available: false, failedGroupCounts: {}, rerunIds: [] };
   }
   return summarizeHistory(runs, groups, lookback, safeBranch(input(io, "history_branch") || void 0));
@@ -112066,7 +112184,7 @@ async function run(io) {
   }
   const changed = await collectChangedPaths(io, timeoutMs);
   const lookback = parseLookback(input(io, "history_lookback"), loaded.lookback);
-  const history = collectHistory(io, includeHistory, loaded.groups, lookback);
+  const history = await collectHistory(io, includeHistory, loaded.groups, lookback, timeoutMs);
   const components = buildComponentEvidence(changed.paths, loaded.components);
   let groups = annotateComponentHits(loaded.groups, components.mappedGroupIds);
   const frameworks = discoverFrameworksEnabled ? discoverFrameworks(workspace, parseFrameworksInput(input(io, "frameworks"))) : { results: [], detected: [], parseErrors: [] };
@@ -112282,6 +112400,7 @@ var names = [
   "history_path",
   "history_lookback",
   "history_branch",
+  "history_group_id_map",
   "coverage_path",
   "coverage_threshold",
   "discover_frameworks",

@@ -98,3 +98,136 @@ export function annotateComponentHits(
     componentHit: mapped.has(group.id),
   }));
 }
+
+interface GithubRun {
+  id?: number;
+  head_branch?: string | null;
+  conclusion?: string | null;
+}
+
+interface GithubJob {
+  name?: string;
+  conclusion?: string | null;
+}
+
+export function parseHistoryGroupIdMap(raw: string): Record<string, string> {
+  if (!raw.trim()) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error('history_group_id_map is not valid JSON');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('history_group_id_map must be a JSON object of name→id');
+  }
+  const out: Record<string, string> = {};
+  for (const [name, id] of Object.entries(parsed as Record<string, unknown>)) {
+    if (typeof id !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(id)) {
+      throw new Error(`history_group_id_map has invalid group id for ${name}`);
+    }
+    if (!name || name.length > 128) throw new Error('history_group_id_map has an invalid job name key');
+    out[name] = id;
+  }
+  return out;
+}
+
+export function resolveFailedGroupIds(
+  jobs: GithubJob[],
+  allowlist: Set<string>,
+  nameToId: Record<string, string>,
+): string[] {
+  const failed: string[] = [];
+  for (const job of jobs) {
+    if (job.conclusion !== 'failure' && job.conclusion !== 'timed_out') continue;
+    const candidates = [
+      typeof job.name === 'string' ? job.name : null,
+      typeof job.name === 'string' ? nameToId[job.name] : null,
+    ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+
+    let chosen: string | null = null;
+    for (const candidate of candidates) {
+      if (allowlist.has(candidate) && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(candidate)) {
+        chosen = candidate;
+        break;
+      }
+    }
+    if (!chosen) {
+      const raw = typeof job.name === 'string' ? job.name : '';
+      if (/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(raw) && allowlist.has(raw)) chosen = raw;
+    }
+    if (chosen) failed.push(chosen);
+  }
+  return [...new Set(failed)].slice(0, 64);
+}
+
+async function githubJson(
+  fetchImpl: typeof fetch,
+  token: string,
+  url: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetchImpl(url, {
+      headers: {
+        accept: 'application/vnd.github+json',
+        authorization: `Bearer ${token}`,
+        'user-agent': 'jev-test-intelligence',
+        'x-github-api-version': '2022-11-28',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) return { ok: false, status: response.status, body: null };
+    return { ok: true, status: response.status, body: (await response.json()) as unknown };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function fetchActionHistory(input: {
+  fetchImpl: typeof fetch;
+  token: string;
+  owner: string;
+  repo: string;
+  branch?: string;
+  lookback: number;
+  timeoutMs: number;
+  allowlist?: string[];
+  nameToId?: Record<string, string>;
+}): Promise<HistoryRun[]> {
+  const owner = assertGithubName(input.owner, 'owner');
+  const repo = assertGithubName(input.repo, 'repo');
+  const lookback = Math.min(20, Math.max(1, input.lookback));
+  const branch = safeBranch(input.branch);
+  const allow = new Set(input.allowlist ?? []);
+  const nameToId = input.nameToId ?? {};
+  const query = new URLSearchParams({ per_page: String(lookback) });
+  if (branch) query.set('branch', branch);
+  const runsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs?${query.toString()}`;
+  const listed = await githubJson(input.fetchImpl, input.token, runsUrl, input.timeoutMs);
+  if (!listed.ok) throw new Error(`GitHub Actions history request failed with HTTP ${listed.status}`);
+  const runs = (listed.body as { workflow_runs?: GithubRun[] } | null)?.workflow_runs ?? [];
+  const history: HistoryRun[] = [];
+  for (const run of runs.slice(0, lookback)) {
+    if (!run.id || (run.conclusion !== 'failure' && run.conclusion !== 'timed_out')) continue;
+    const jobsUrl = `https://api.github.com/repos/${owner}/${repo}/actions/runs/${run.id}/jobs?per_page=100`;
+    const jobsResponse = await githubJson(input.fetchImpl, input.token, jobsUrl, input.timeoutMs);
+    if (!jobsResponse.ok) continue;
+    const jobs = (jobsResponse.body as { jobs?: GithubJob[] } | null)?.jobs ?? [];
+    const failed =
+      allow.size > 0
+        ? resolveFailedGroupIds(jobs, allow, nameToId)
+        : jobs
+            .filter(job => (job.conclusion === 'failure' || job.conclusion === 'timed_out') && typeof job.name === 'string')
+            .map(job => job.name as string)
+            .filter(name => /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(name));
+    history.push({
+      head_branch: typeof run.head_branch === 'string' ? run.head_branch : undefined,
+      conclusion: run.conclusion === 'timed_out' ? 'timed_out' : 'failure',
+      failed_groups: [...new Set(failed)].slice(0, 64),
+    });
+  }
+  return history;
+}

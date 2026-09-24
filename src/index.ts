@@ -19,6 +19,7 @@ const names = [
   'history_path',
   'history_lookback',
   'history_branch',
+  'history_group_id_map',
   'coverage_path',
   'coverage_threshold',
   'discover_frameworks',

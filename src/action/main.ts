@@ -10,6 +10,8 @@ import {
   annotateComponentHits,
   buildComponentEvidence,
   emptyHistory,
+  fetchActionHistory,
+  parseHistoryGroupIdMap,
   safeBranch,
   summarizeHistory,
   type HistorySummary,
@@ -124,24 +126,53 @@ async function collectChangedPaths(io: ActionIO, timeoutMs: number): Promise<{ p
   return { paths: [], truncated: false };
 }
 
-function collectHistory(
+async function collectHistory(
   io: ActionIO,
   enabled: boolean,
   groups: Parameters<typeof summarizeHistory>[1],
   lookback: number,
-): HistorySummary {
+  timeoutMs: number,
+): Promise<HistorySummary> {
   if (!enabled) return emptyHistory();
   const historyPath = input(io, 'history_path') || '.jev/test-history.json';
   let runs: HistoryRun[] = [];
+  let available = false;
   try {
     const fileRuns = loadHistoryFile(io.workspace, historyPath);
-    if (fileRuns == null) {
-      return { enabled: true, available: false, failedGroupCounts: {}, rerunIds: [] };
+    if (fileRuns != null) {
+      runs = fileRuns;
+      available = true;
     }
-    runs = fileRuns;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'history load failed';
     io.warning(redactSecrets(message));
+  }
+
+  const token = input(io, 'token');
+  const allowlist = groups.map(group => group.id);
+  const nameToId = parseHistoryGroupIdMap(input(io, 'history_group_id_map'));
+  if (token && io.repo.owner && io.repo.repo) {
+    try {
+      const apiRuns = await fetchActionHistory({
+        fetchImpl: io.fetch,
+        token,
+        owner: io.repo.owner,
+        repo: io.repo.repo,
+        branch: safeBranch(input(io, 'history_branch') || undefined),
+        lookback,
+        timeoutMs,
+        allowlist,
+        nameToId,
+      });
+      runs = [...runs, ...apiRuns].slice(0, lookback);
+      available = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'history request failed';
+      io.warning(redactSecrets(message));
+    }
+  }
+
+  if (!available) {
     return { enabled: true, available: false, failedGroupCounts: {}, rerunIds: [] };
   }
   return summarizeHistory(runs, groups, lookback, safeBranch(input(io, 'history_branch') || undefined));
@@ -193,7 +224,7 @@ async function run(io: ActionIO): Promise<void> {
 
   const changed = await collectChangedPaths(io, timeoutMs);
   const lookback = parseLookback(input(io, 'history_lookback'), loaded.lookback);
-  const history = collectHistory(io, includeHistory, loaded.groups, lookback);
+  const history = await collectHistory(io, includeHistory, loaded.groups, lookback, timeoutMs);
   const components = buildComponentEvidence(changed.paths, loaded.components);
   let groups = annotateComponentHits(loaded.groups, components.mappedGroupIds);
 

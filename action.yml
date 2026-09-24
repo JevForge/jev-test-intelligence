@@ -55,7 +55,7 @@ inputs:
     required: false
     default: 'false'
   include_history:
-    description: Read .jev/test-history.json and re-select groups that failed recently when configured.
+    description: Read .jev/test-history.json and, when a token is available, recent GitHub Actions failures mapped to group ids.
     required: false
     default: 'false'
   history_path:
@@ -67,7 +67,11 @@ inputs:
     required: false
     default: ''
   history_branch:
-    description: Only count history runs for this branch. Empty counts every run in the file.
+    description: Only count history runs for this branch. Empty counts every run in the file or API page.
+    required: false
+    default: ''
+  history_group_id_map:
+    description: Optional JSON object mapping GitHub Actions job display names to allowlisted group ids (name→id). Prefer when workflow jobs use a custom name: field.
     required: false
     default: ''
   coverage_path:
@@ -115,7 +119,7 @@ inputs:
     required: false
     default: 'false'
   token:
-    description: GitHub token used only to list pull request / compare files. Prefer secrets.GITHUB_TOKEN; never print this value.
+    description: GitHub token used to list pull request / compare files and, when include_history is true, recent Actions run metadata. Prefer secrets.GITHUB_TOKEN; never print this value.
     required: false
     default: ${{ github.token }}
   dry_run:
