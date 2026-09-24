@@ -11,7 +11,7 @@ Running every suite on every PR burns minutes and money. Letting an unconstraine
 
 ```yaml
 - id: ti
-  uses: JevForge/jev-test-intelligence@v0
+  uses: JevForge/jev-test-intelligence@v0.1.7
   env:
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
@@ -20,7 +20,7 @@ Prefer less boilerplate? Use the composite wrapper (checkout + Test Intelligence
 
 ```yaml
 - id: ti
-  uses: JevForge/jev-test-intelligence/composite@v0
+  uses: JevForge/jev-test-intelligence/composite@v0.1.7
   env:
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
@@ -32,6 +32,8 @@ Prefer less boilerplate? Use the composite wrapper (checkout + Test Intelligence
 * Structured outputs for later jobs (`selected_test_groups`, `decision`, `confidence`, …)
 * Deterministic allowlist, path hits, component maps, always-on groups, and dependency closure
 * Optional coverage gaps, failure history, and framework discovery (Jest, Vitest, Pytest, JUnit, Playwright, Cypress)
+* Optional Monorepo Navigator hand-off through `monorepo_plan`
+* Suggest-only `recommended_command` output and path-free telemetry artifact
 * Safe failure policies: `fail` | `warn` | `request-review` | `no-op`
 * `force_full_suite` and low-confidence paths default toward a safe full allowlist
 * `dry_run` (default `true`) suppresses step failure on policy `fail` — set `false` to fail the step
@@ -54,14 +56,7 @@ selected_test_groups / skipped_test_groups
 Downstream jobs use if: contains(fromJSON(...), 'unit')
 ```
 
-```mermaid
-flowchart LR
-  A[GitHub Event] --> B[Collectors]
-  B --> C[Jev]
-  C --> D[Validate]
-  D --> E[Policy]
-  E --> F[selected_test_groups]
-```
+![JEV Test Intelligence architecture](docs/architecture.svg)
 
 1. Load the group allowlist from `.jev/test-intelligence.yml` (or `group_map`).
 2. Collect changed paths from the event or `changed_paths`.
@@ -69,6 +64,12 @@ flowchart LR
 4. Call Jev through `jev_provider` (no silent provider fallback) — or use `decision_mode: deterministic`.
 5. Validate the response; drop unknown group ids; close `needs` edges.
 6. Emit outputs. Free-form `summary` and configured `command` strings are display-only and must never be executed by this Action.
+
+Configured commands are intentionally limited to simple runner invocations such as
+`npm run unit`, `pnpm test`, `pytest -q`, or `npx playwright test`. Shell operators,
+interpreter wrappers, redirects, and arbitrary shell snippets are omitted from
+`commands` and `recommended_command`; a downstream job must choose its own trusted
+`run:` implementation.
 
 ## Demo
 
@@ -115,7 +116,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 
@@ -128,7 +129,7 @@ jobs:
       - run: npm test
 ```
 
-Pin `@v0` for the floating major, `@v0.1.0` for a fixed release, or a commit SHA for the strongest supply-chain guarantee.
+Pin `@v0` for the floating major, `@v0.1.7` for this release, or a commit SHA for the strongest supply-chain guarantee.
 
 ## Complete Example
 
@@ -157,7 +158,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - id: ti
-        uses: JevForge/jev-test-intelligence@v0
+        uses: JevForge/jev-test-intelligence@v0.1.7
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:
@@ -265,7 +266,9 @@ Optional:
 | `history_lookback` | no | config / `10` | 1–20 recent runs |
 | `history_branch` | no | _(empty)_ | Limit history to one branch |
 | `history_group_id_map` | no | _(empty)_ | JSON map of Actions job display name → group id |
-| `coverage_path` | no | _(empty)_ | Coverage JSON for gap detection |
+| `job_id_map` | no | _(empty)_ | Preferred JSON map of custom Actions job display name → group id; takes precedence over the legacy history map |
+| `monorepo_plan` | no | _(empty)_ | JSON hand-off from JEV Monorepo Navigator; see [`docs/monorepo-plan.md`](docs/monorepo-plan.md) |
+| `coverage_path` | no | _(empty)_ | Istanbul coverage JSON or LCOV (`coverage/lcov.info`) for gap detection |
 | `coverage_threshold` | no | `0.8` | Line coverage ratio 0–1 |
 | `discover_frameworks` | no | `true` | Discover test frameworks as evidence |
 | `frameworks` | no | _(all)_ | Comma-separated adapter allowlist |
@@ -274,7 +277,8 @@ Optional:
 | `cache_decisions` | no | `false` | Restore/save typed decisions via GitHub Actions cache |
 | `comment_on_github` | no | `false` | Upsert PR comment |
 | `create_check_run` | no | `false` | Create Check Run |
-| `telemetry` | no | `false` | Structured duration log (no secrets/paths) |
+| `telemetry` | no | `false` | Structured counters (no secrets/paths) |
+| `telemetry_artifact_path` | no | _(empty)_ | Optional workspace-relative path for a small path-free telemetry JSON artifact |
 | `trust_repo_jev_endpoint` | no | `false` | Allow repo config endpoint to receive credentials |
 | `token` | no | `${{ github.token }}` | Token for PR file listing |
 | `dry_run` | no | `true` | Do not fail the step on policy `fail` |
@@ -300,11 +304,14 @@ Full metadata: [`action.yml`](action.yml).
 | `frameworks_detected` | Discovered framework ids |
 | `coverage_gaps` | Changed paths below coverage threshold |
 | `commands` | JSON map group → configured command (not executed) |
+| `recommended_command` | JSON map selected group → sanitized display-only command (not executed) |
 | `matrix` | `strategy.matrix` helper `{"include":[{"group":"..."}]}` |
 | `if_snippets` | Suggested `if:` expressions per group |
 | `jev_provider` | Provider that was asked |
 | `cache_hit` | `true` when decision restored from cache |
 | `full_suite` | `true` when every allowlisted group was selected |
+| `monorepo_affected_projects` | Projects received from the Monorepo Navigator plan |
+| `monorepo_dropped_groups` | Unknown group ids dropped from that plan |
 
 ## Configuration
 
@@ -327,6 +334,12 @@ components:
 ```
 
 See [`examples/.jev/`](examples/.jev/) for a fuller sample, history file, and shared Jev config.
+
+### Suggest-only mode
+
+Use [`examples/suggest-only.yml`](examples/suggest-only.yml) when a job should only
+print the selected groups and recommended commands. The Action never executes those
+commands; the example intentionally stops at displaying the plan.
 
 ## Data Sent to JEV
 
@@ -368,10 +381,12 @@ Logs are prefixed with `[JEV Test Intelligence]`.
 | Pin | Meaning |
 | --- | --- |
 | `@v0` | Floating major (moves with new `0.x` releases) |
-| `@v0.1.0` | Exact SemVer release |
+| `@v0.1.7` | Exact SemVer release |
 | `@<sha>` | Strongest supply-chain pin |
 
 Consumers use committed `dist/index.js` — they do not run `npm install` for this Action.
+
+The provider contract boundary is documented in [`docs/jev-core-boundary.md`](docs/jev-core-boundary.md).
 
 ## Development
 

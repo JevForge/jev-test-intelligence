@@ -1,194 +1,248 @@
 name: JEV Test Intelligence (composite)
-description: Checkout the repository and run JEV Test Intelligence, re-exporting its outputs.
+description: Checkout the repository and run JEV Test Intelligence, re-exporting
+  its outputs.
 author: JevForge
 branding:
   icon: check-circle
   color: blue
-
 inputs:
   config_path:
-    description: Path to the test intelligence config.
+    description: Path to the test intelligence config with group allowlist, path
+      globs, and components.
     required: false
     default: .jev/test-intelligence.yml
   changed_paths:
-    description: Newline-separated list or JSON array of changed paths.
+    description: Newline-separated list or JSON array of changed repo-relative
+      paths. Empty collects paths from the GitHub event.
     required: false
-    default: ''
+    default: ""
   group_map:
-    description: Optional JSON array that replaces groups from the config file.
+    description: Optional JSON array that replaces the groups in the config file.
     required: false
-    default: ''
+    default: ""
   component_map:
-    description: Optional JSON array that replaces components from the config file.
+    description: Optional JSON array that replaces the components in the config file.
     required: false
-    default: ''
+    default: ""
+  monorepo_plan:
+    description: JSON hand-off from JEV Monorepo Navigator with affected_projects
+      and execution_plan.
+    required: false
+    default: ""
   jev_provider:
-    description: 'Jev provider: vercel-ai-gateway, typesafe-native, or custom-compatible.'
+    description: "Jev provider: vercel-ai-gateway, typesafe-native, or
+      custom-compatible. Defaults to vercel-ai-gateway."
     required: false
-    default: ''
+    default: ""
   jev_model:
-    description: Model id for the selected provider.
+    description: Model id. vercel-ai-gateway defaults to typesafe-ai/jev. Native and
+      custom providers require a catalog model id.
     required: false
-    default: ''
+    default: ""
   jev_endpoint:
-    description: HTTPS endpoint for typesafe-native or custom-compatible.
+    description: HTTPS endpoint for typesafe-native or custom-compatible. Workflow
+      inputs are trusted; repository config is not, unless
+      trust_repo_jev_endpoint is true.
     required: false
-    default: ''
+    default: ""
   jev_timeout_ms:
-    description: Provider timeout in milliseconds.
+    description: Provider timeout in milliseconds, from 1000 to 120000.
     required: false
-    default: '45000'
+    default: "45000"
   jev_config_path:
     description: Shared Jev config path.
     required: false
     default: .jev/config.yml
   min_confidence:
-    description: Minimum confidence before skips are trusted.
+    description: Minimum confidence required before a SELECT_GROUPS result can skip groups.
     required: false
-    default: ''
+    default: ""
   low_confidence_policy:
-    description: 'Policy: fail, warn, request-review, or no-op.'
+    description: "Policy when Jev is unavailable, rejected, or below min_confidence:
+      fail, warn, request-review, or no-op."
     required: false
-    default: ''
+    default: ""
   force_full_suite:
-    description: Select every allowlisted group.
+    description: When true, select every allowlisted group (safe full suite) without
+      relying on Jev skips.
     required: false
-    default: 'false'
+    default: "false"
   include_history:
-    description: Read history file and recent GitHub Actions failures.
+    description: Read .jev/test-history.json and, when a token is available, recent
+      GitHub Actions failures mapped to group ids.
     required: false
-    default: 'false'
+    default: "false"
   history_path:
-    description: JSON history file path.
+    description: JSON file of recent test runs used as history evidence.
     required: false
     default: .jev/test-history.json
   history_lookback:
-    description: Maximum history runs to consider.
+    description: Maximum history runs to consider, from 1 to 20.
     required: false
-    default: ''
+    default: ""
   history_branch:
-    description: Only count history for this branch.
+    description: Only count history runs for this branch. Empty counts every run in
+      the file or API page.
     required: false
-    default: ''
+    default: ""
   history_group_id_map:
-    description: JSON map of Actions job display names to group ids.
+    description: Optional JSON object mapping GitHub Actions job display names to
+      allowlisted group ids.
     required: false
-    default: ''
+    default: ""
+  job_id_map:
+    description: Optional JSON object mapping custom Actions job display names to
+      allowlisted group ids; takes precedence over history_group_id_map.
+    required: false
+    default: ""
   coverage_path:
-    description: Optional coverage JSON or LCOV path.
+    description: Optional Istanbul-style or files-map coverage JSON used to detect
+      coverage gaps on changed paths.
     required: false
-    default: ''
+    default: ""
   coverage_threshold:
-    description: Minimum line coverage ratio from 0 to 1.
+    description: Minimum line coverage ratio (0..1) before a changed file is treated
+      as a coverage gap.
     required: false
-    default: '0.8'
+    default: "0.8"
   discover_frameworks:
-    description: Discover framework inventory as evidence.
+    description: Discover Jest, Vitest, Pytest, JUnit, Playwright, and Cypress
+      inventory as evidence.
     required: false
-    default: 'true'
+    default: "true"
   frameworks:
-    description: Comma-separated adapter allowlist.
+    description: Comma-separated adapter allowlist. Empty enables all supported frameworks.
     required: false
-    default: ''
+    default: ""
   require_path_hits:
-    description: Keep path-matching groups even if Jev would skip them.
+    description: Keep groups whose configured paths match the diff even if Jev would
+      skip them.
     required: false
-    default: 'true'
+    default: "true"
   decision_mode:
-    description: 'jev or deterministic.'
+    description: jev (default) asks Jev; deterministic selects from path hits,
+      always-on, history, and components without calling Jev.
     required: false
     default: jev
   cache_decisions:
-    description: Restore/save the typed decision via the Actions cache.
+    description: When true, restore/save the typed decision via the GitHub Actions
+      cache (keyed by commit SHA, config, paths, provider, and decision_mode).
     required: false
-    default: 'false'
+    default: "false"
   comment_on_github:
-    description: Upsert an idempotent PR comment.
+    description: "When true on pull_request events, upsert an idempotent PR comment
+      marked <!-- jev-test-intelligence -->. Requires pull-requests: write."
     required: false
-    default: 'false'
+    default: "false"
   create_check_run:
-    description: Create a completed Check Run.
+    description: "When true, create a completed Check Run named JEV Test
+      Intelligence. Requires checks: write."
     required: false
-    default: 'false'
+    default: "false"
   telemetry:
-    description: Emit structured JSON info log without secrets or paths.
+    description: When true, emit structured JSON counters with duration_ms,
+      provider, provisional, selected_count, adapter_count, and cache_hit (no
+      paths or secrets).
     required: false
-    default: 'false'
+    default: "false"
+  telemetry_artifact_path:
+    description: Optional workspace-relative JSON path for a small path-free
+      telemetry artifact; written only when telemetry is true.
+    required: false
+    default: ""
   trust_repo_jev_endpoint:
-    description: Allow repository config endpoint to receive credentials.
+    description: Allow jev_endpoint from repository config to receive credentials.
+      Leave false unless that file is protected.
     required: false
-    default: 'false'
+    default: "false"
   token:
-    description: Token for checkout and GitHub API reads.
+    description: GitHub token used to list pull request / compare files and, when
+      include_history is true, recent Actions run metadata. Prefer
+      secrets.GITHUB_TOKEN; never print this value.
     required: false
     default: ${{ github.token }}
   dry_run:
-    description: When true, do not fail the step on policy fail.
+    description: When true (default), emit outputs and summaries but do not fail the
+      step on policy fail. When false, policy fail fails the step. The action
+      never executes tests.
     required: false
-    default: 'true'
-
+    default: "true"
 outputs:
   decision:
-    description: Decision enum.
+    description: SELECT_GROUPS, RUN_ALL, ABSTAIN, or REQUEST_REVIEW.
     value: ${{ steps.ti.outputs.decision }}
   selected_test_groups:
-    description: JSON array of groups to run.
+    description: JSON array of allowlisted group ids to run, in config order.
     value: ${{ steps.ti.outputs.selected_test_groups }}
   skipped_test_groups:
-    description: JSON array of groups to skip.
+    description: JSON array of allowlisted group ids to skip, in config order.
     value: ${{ steps.ti.outputs.skipped_test_groups }}
   selected_test_groups_csv:
-    description: CSV of selected groups.
+    description: Comma-separated selected groups. Prefer the JSON output with fromJSON.
     value: ${{ steps.ti.outputs.selected_test_groups_csv }}
   skipped_test_groups_csv:
-    description: CSV of skipped groups.
+    description: Comma-separated skipped groups. Prefer the JSON output with fromJSON.
     value: ${{ steps.ti.outputs.skipped_test_groups_csv }}
   confidence:
-    description: Confidence from 0 to 1.
+    description: Jev confidence from 0 to 1. Policy overrides do not invent a higher value.
     value: ${{ steps.ti.outputs.confidence }}
   reason_codes:
-    description: JSON reason codes.
+    description: JSON array of stable reason codes.
     value: ${{ steps.ti.outputs.reason_codes }}
   summary:
-    description: Plain-text summary.
+    description: Plain-text explanation. It is not a command and must not be executed.
     value: ${{ steps.ti.outputs.summary }}
   provisional:
-    description: Whether the result is provisional.
+    description: true when the selection came from deterministic policy rather than
+      a trusted Jev selection.
     value: ${{ steps.ti.outputs.provisional }}
   needs_review:
-    description: Whether review was requested.
+    description: true when the request-review policy applied.
     value: ${{ steps.ti.outputs.needs_review }}
   affected_paths:
-    description: JSON changed paths.
+    description: JSON array of normalized changed paths collected by the action.
     value: ${{ steps.ti.outputs.affected_paths }}
   history_applied:
-    description: Groups forced by history.
+    description: JSON array of allowlisted groups added because they failed in
+      recent history.
     value: ${{ steps.ti.outputs.history_applied }}
   frameworks_detected:
-    description: Discovered frameworks.
+    description: JSON array of discovered framework ids.
     value: ${{ steps.ti.outputs.frameworks_detected }}
   coverage_gaps:
-    description: Coverage gaps JSON.
+    description: JSON array of changed paths with missing or below-threshold coverage.
     value: ${{ steps.ti.outputs.coverage_gaps }}
+  monorepo_affected_projects:
+    description: JSON array of Monorepo Navigator projects mapped as affected evidence.
+    value: ${{ steps.ti.outputs.monorepo_affected_projects }}
+  monorepo_dropped_groups:
+    description: JSON array of unknown group ids dropped from the Monorepo Navigator plan.
+    value: ${{ steps.ti.outputs.monorepo_dropped_groups }}
   commands:
-    description: Configured command map.
+    description: JSON map of group id to configured command string. For
+      humans/workflows only — never executed by this action.
     value: ${{ steps.ti.outputs.commands }}
+  recommended_command:
+    description: JSON map of selected group id to a sanitized suggested command.
+      Display-only; never executed by this action.
+    value: ${{ steps.ti.outputs.recommended_command }}
   matrix:
-    description: Matrix helper JSON.
+    description: JSON object for strategy.matrix — {"include":[{"group":"unit"},...]}.
     value: ${{ steps.ti.outputs.matrix }}
   if_snippets:
-    description: Suggested if expressions.
+    description: "JSON map of group id to a suggested if: expression using
+      fromJSON(selected_test_groups)."
     value: ${{ steps.ti.outputs.if_snippets }}
   jev_provider:
-    description: Provider used.
+    description: Provider that was asked. The action never falls back to a different
+      provider.
     value: ${{ steps.ti.outputs.jev_provider }}
   cache_hit:
-    description: Whether cache restored the decision.
+    description: true when the decision was restored from cache.
     value: ${{ steps.ti.outputs.cache_hit }}
   full_suite:
-    description: Whether every group was selected.
+    description: true when every allowlisted group was selected.
     value: ${{ steps.ti.outputs.full_suite }}
-
 runs:
   using: composite
   steps:
@@ -196,15 +250,15 @@ runs:
       uses: actions/checkout@v4
       with:
         token: ${{ inputs.token }}
-
     - name: Test Intelligence
       id: ti
-      uses: JevForge/jev-test-intelligence@v0
+      uses: JevForge/jev-test-intelligence@v0.1.7
       with:
         config_path: ${{ inputs.config_path }}
         changed_paths: ${{ inputs.changed_paths }}
         group_map: ${{ inputs.group_map }}
         component_map: ${{ inputs.component_map }}
+        monorepo_plan: ${{ inputs.monorepo_plan }}
         jev_provider: ${{ inputs.jev_provider }}
         jev_model: ${{ inputs.jev_model }}
         jev_endpoint: ${{ inputs.jev_endpoint }}
@@ -218,6 +272,7 @@ runs:
         history_lookback: ${{ inputs.history_lookback }}
         history_branch: ${{ inputs.history_branch }}
         history_group_id_map: ${{ inputs.history_group_id_map }}
+        job_id_map: ${{ inputs.job_id_map }}
         coverage_path: ${{ inputs.coverage_path }}
         coverage_threshold: ${{ inputs.coverage_threshold }}
         discover_frameworks: ${{ inputs.discover_frameworks }}
@@ -228,6 +283,7 @@ runs:
         comment_on_github: ${{ inputs.comment_on_github }}
         create_check_run: ${{ inputs.create_check_run }}
         telemetry: ${{ inputs.telemetry }}
+        telemetry_artifact_path: ${{ inputs.telemetry_artifact_path }}
         trust_repo_jev_endpoint: ${{ inputs.trust_repo_jev_endpoint }}
         token: ${{ inputs.token }}
         dry_run: ${{ inputs.dry_run }}

@@ -80,6 +80,7 @@ components:
     expect(io.outputs.full_suite).toBe('true');
     expect(JSON.parse(io.outputs.frameworks_detected!)).toContain('vitest');
     expect(JSON.parse(io.outputs.commands!).unit).toBe('npm test');
+    expect(JSON.parse(io.outputs.recommended_command!)).toEqual({ unit: 'npm test' });
   });
 
   it('force_full_suite selects every group', async () => {

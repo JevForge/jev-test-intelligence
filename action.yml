@@ -22,6 +22,10 @@ inputs:
     description: Optional JSON array that replaces the components in the config file.
     required: false
     default: ''
+  monorepo_plan:
+    description: JSON hand-off from JEV Monorepo Navigator with affected_projects and execution_plan.
+    required: false
+    default: ''
   jev_provider:
     description: 'Jev provider: vercel-ai-gateway, typesafe-native, or custom-compatible. Defaults to vercel-ai-gateway.'
     required: false
@@ -74,6 +78,10 @@ inputs:
     description: Optional JSON object mapping GitHub Actions job display names to allowlisted group ids.
     required: false
     default: ''
+  job_id_map:
+    description: Optional JSON object mapping custom Actions job display names to allowlisted group ids; takes precedence over history_group_id_map.
+    required: false
+    default: ''
   coverage_path:
     description: Optional Istanbul-style or files-map coverage JSON used to detect coverage gaps on changed paths.
     required: false
@@ -103,17 +111,21 @@ inputs:
     required: false
     default: 'false'
   comment_on_github:
-    description: When true on pull_request events, upsert an idempotent PR comment marked <!-- jev-test-intelligence -->. Requires pull-requests: write.
+    description: 'When true on pull_request events, upsert an idempotent PR comment marked <!-- jev-test-intelligence -->. Requires pull-requests: write.'
     required: false
     default: 'false'
   create_check_run:
-    description: When true, create a completed Check Run named JEV Test Intelligence. Requires checks: write.
+    description: 'When true, create a completed Check Run named JEV Test Intelligence. Requires checks: write.'
     required: false
     default: 'false'
   telemetry:
-    description: When true, emit a structured JSON info log with duration_ms, provider, provisional, selected_count, and cache_hit (no paths or secrets).
+    description: When true, emit structured JSON counters with duration_ms, provider, provisional, selected_count, adapter_count, and cache_hit (no paths or secrets).
     required: false
     default: 'false'
+  telemetry_artifact_path:
+    description: Optional workspace-relative JSON path for a small path-free telemetry artifact; written only when telemetry is true.
+    required: false
+    default: ''
   trust_repo_jev_endpoint:
     description: Allow jev_endpoint from repository config to receive credentials. Leave false unless that file is protected.
     required: false
@@ -156,12 +168,18 @@ outputs:
     description: JSON array of discovered framework ids.
   coverage_gaps:
     description: JSON array of changed paths with missing or below-threshold coverage.
+  monorepo_affected_projects:
+    description: JSON array of Monorepo Navigator projects mapped as affected evidence.
+  monorepo_dropped_groups:
+    description: JSON array of unknown group ids dropped from the Monorepo Navigator plan.
   commands:
     description: JSON map of group id to configured command string. For humans/workflows only — never executed by this action.
+  recommended_command:
+    description: JSON map of selected group id to a sanitized suggested command. Display-only; never executed by this action.
   matrix:
-    description: JSON object for strategy.matrix — {"include":[{"group":"unit"},...]}.
+    description: 'JSON object for strategy.matrix — {"include":[{"group":"unit"},...]}.'
   if_snippets:
-    description: JSON map of group id to a suggested if: expression using fromJSON(selected_test_groups).
+    description: 'JSON map of group id to a suggested if: expression using fromJSON(selected_test_groups).'
   jev_provider:
     description: Provider that was asked. The action never falls back to a different provider.
   cache_hit:

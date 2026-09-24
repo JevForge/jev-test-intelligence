@@ -26,6 +26,7 @@ describe('utils', () => {
       cache_hit: false,
       decision: 'SELECT_GROUPS',
       decision_mode: 'deterministic',
+      adapter_count: 2,
     });
     expect(line).toContain('jev_test_intelligence_telemetry');
     expect(line).not.toContain('AI_GATEWAY');

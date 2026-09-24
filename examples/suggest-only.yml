@@ -1,0 +1,28 @@
+name: Suggest selective tests
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      commands: ${{ steps.ti.outputs.recommended_command }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: ti
+        uses: JevForge/jev-test-intelligence@v0.1.7
+        with:
+          decision_mode: deterministic
+          telemetry: 'true'
+      - name: Print suggested test plan
+        env:
+          RECOMMENDED_COMMANDS: ${{ steps.ti.outputs.recommended_command }}
+          SELECTED_GROUPS: ${{ steps.ti.outputs.selected_test_groups }}
+        run: |
+          echo "Selected groups: ${SELECTED_GROUPS}"
+          echo "Recommended commands (display-only): ${RECOMMENDED_COMMANDS}"

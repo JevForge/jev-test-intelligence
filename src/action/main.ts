@@ -19,13 +19,14 @@ import {
 import { listCompareFiles, listPullRequestFiles, pathsFromPushPayload } from '../collectors/github-paths.js';
 import { loadCoverageSummary, parseCoverageThreshold } from '../collectors/coverage.js';
 import { discoverFrameworks, parseFrameworksInput } from '../adapters/index.js';
-import { createJevProvider, credentialEnvName } from '../jev/factory.js';
-import { unavailableDecision } from '../jev/normalize.js';
+import { buildMonorepoEvidence, parseMonorepoPlan } from '../collectors/monorepo.js';
+import { createJevProvider, credentialEnvName, unavailableDecision } from '../jev/core/index.js';
 import { executeIntelligence } from '../decision/execute.js';
 import { executeDeterministic } from '../decision/deterministic.js';
 import { buildCacheKey, fingerprintConfig, saveDecisionCache, tryRestoreDecisionCache } from '../decision/cache.js';
 import {
   buildCommandsMap,
+  buildRecommendedCommands,
   buildGroupIfSnippets,
   buildMatrixOutput,
   formatIfSnippetsMarkdown,
@@ -40,7 +41,7 @@ import {
   maybeCreateCheckRun,
   resolveHeadSha,
 } from '../github/check-run.js';
-import { formatTelemetryLine } from '../telemetry.js';
+import { formatTelemetryLine, writeTelemetryArtifact, type IntelligenceTelemetry } from '../telemetry.js';
 import { join } from 'node:path';
 import type { HistoryRun } from '../schemas/intelligence.js';
 import {
@@ -150,7 +151,9 @@ async function collectHistory(
 
   const token = input(io, 'token');
   const allowlist = groups.map(group => group.id);
-  const nameToId = parseHistoryGroupIdMap(input(io, 'history_group_id_map'));
+  const nameToId = parseHistoryGroupIdMap(
+    input(io, 'job_id_map').trim() || input(io, 'history_group_id_map'),
+  );
   if (token && io.repo.owner && io.repo.repo) {
     try {
       const apiRuns = await fetchActionHistory({
@@ -226,7 +229,18 @@ async function run(io: ActionIO): Promise<void> {
   const lookback = parseLookback(input(io, 'history_lookback'), loaded.lookback);
   const history = await collectHistory(io, includeHistory, loaded.groups, lookback, timeoutMs);
   const components = buildComponentEvidence(changed.paths, loaded.components);
-  let groups = annotateComponentHits(loaded.groups, components.mappedGroupIds);
+  const monorepoPlan = parseMonorepoPlan(input(io, 'monorepo_plan'));
+  const monorepo = buildMonorepoEvidence({
+    plan: monorepoPlan,
+    components: loaded.components,
+    groups: loaded.groups,
+    allowlist: loaded.groups.map(group => group.id),
+  });
+  const affectedComponents = [...new Set([...components.affectedComponents, ...monorepo.affectedProjects])];
+  let groups = annotateComponentHits(
+    loaded.groups,
+    [...new Set([...components.mappedGroupIds, ...monorepo.mappedGroupIds])],
+  );
 
   const frameworks = discoverFrameworksEnabled
     ? discoverFrameworks(workspace, parseFrameworksInput(input(io, 'frameworks')))
@@ -253,6 +267,7 @@ async function run(io: ActionIO): Promise<void> {
     paths: changed.paths,
     provider: settings.provider,
     decisionMode,
+    monorepoPlan,
   });
   const cacheDir = join(workspace, '.jev', '.decision-cache');
   let cacheHit = false;
@@ -273,7 +288,7 @@ async function run(io: ActionIO): Promise<void> {
             coverage,
             frameworksDetected: frameworks.detected,
             adapterParseErrors: frameworks.parseErrors,
-            affectedComponents: components.affectedComponents,
+            affectedComponents,
             noChangedPaths: changed.paths.length === 0,
           })
         : await executeIntelligence({
@@ -302,7 +317,7 @@ async function run(io: ActionIO): Promise<void> {
             coverage,
             frameworksDetected: frameworks.detected,
             adapterParseErrors: frameworks.parseErrors,
-            affectedComponents: components.affectedComponents,
+            affectedComponents,
           });
     if (cacheEnabled) {
       const saved = await saveDecisionCache({ enabled: true, key: cacheKey, cacheDir, result });
@@ -315,6 +330,7 @@ async function run(io: ActionIO): Promise<void> {
   }
 
   const commands = buildCommandsMap(loaded.groups);
+  const recommendedCommands = buildRecommendedCommands(result.selectedGroups, loaded.groups);
   const ifSnippets = buildGroupIfSnippets(loaded.groups.map(group => group.id));
 
   io.setOutput('decision', result.decision);
@@ -331,7 +347,10 @@ async function run(io: ActionIO): Promise<void> {
   io.setOutput('history_applied', JSON.stringify(result.historyApplied));
   io.setOutput('frameworks_detected', JSON.stringify(frameworks.detected));
   io.setOutput('coverage_gaps', JSON.stringify(coverage.gaps));
+  io.setOutput('monorepo_affected_projects', JSON.stringify(monorepo.affectedProjects));
+  io.setOutput('monorepo_dropped_groups', JSON.stringify(monorepo.droppedGroupIds));
   io.setOutput('commands', JSON.stringify(commands));
+  io.setOutput('recommended_command', JSON.stringify(recommendedCommands));
   io.setOutput('matrix', buildMatrixOutput(result.selectedGroups));
   io.setOutput('if_snippets', JSON.stringify(ifSnippets));
   io.setOutput('jev_provider', result.provider);
@@ -435,16 +454,25 @@ async function run(io: ActionIO): Promise<void> {
   }
 
   if (parseBool(input(io, 'telemetry'), false)) {
-    io.info(
-      formatTelemetryLine({
-        duration_ms: Date.now() - started,
-        provider: result.provider,
-        provisional: result.provisional,
-        selected_count: result.selectedGroups.length,
-        cache_hit: cacheHit,
-        decision: result.decision,
-        decision_mode: decisionMode,
-      }),
-    );
+    const event: IntelligenceTelemetry = {
+      duration_ms: Date.now() - started,
+      provider: result.provider,
+      provisional: result.provisional,
+      selected_count: result.selectedGroups.length,
+      cache_hit: cacheHit,
+      decision: result.decision,
+      decision_mode: decisionMode,
+      adapter_count: frameworks.results.filter(adapter => adapter.discovered).length,
+    };
+    io.info(formatTelemetryLine(event));
+    const artifactPath = input(io, 'telemetry_artifact_path').trim();
+    if (artifactPath) {
+      try {
+        writeTelemetryArtifact(workspace, artifactPath, event);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'telemetry artifact failed';
+        io.warning(redactSecrets(message));
+      }
+    }
   }
 }

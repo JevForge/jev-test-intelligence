@@ -31,6 +31,36 @@ function pctFromFile(entry: unknown): number | null {
   return null;
 }
 
+function parseLcov(raw: string): Record<string, { covered: number; total: number }> {
+  const files: Record<string, { covered: number; total: number }> = {};
+  let file: string | undefined;
+  let total = 0;
+  let covered = 0;
+  const commit = () => {
+    if (file) files[file] = { covered, total };
+    file = undefined;
+    total = 0;
+    covered = 0;
+  };
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.startsWith('SF:')) {
+      commit();
+      const sourceFile = line.slice(3).trim();
+      file = normalizeRepoPath(sourceFile) ?? sourceFile.replaceAll('\\', '/');
+    } else if (line.startsWith('LF:')) {
+      const value = Number(line.slice(3));
+      if (Number.isInteger(value) && value >= 0) total = value;
+    } else if (line.startsWith('LH:')) {
+      const value = Number(line.slice(3));
+      if (Number.isInteger(value) && value >= 0) covered = value;
+    } else if (line === 'end_of_record') {
+      commit();
+    }
+  }
+  commit();
+  return files;
+}
+
 export function parseCoverageThreshold(value: string | undefined, fallback = 0.8): number {
   if (value == null || value.trim() === '') return fallback;
   const number = Number(value);
@@ -53,21 +83,26 @@ export function loadCoverageSummary(
   if (raw == null) {
     return { available: false, gaps: [], threshold, filesConsidered: 0 };
   }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
-    throw new Error(`Invalid JSON in ${relativePath}`);
+  const looksLikeLcov = /(^|\r?\n)SF:/.test(raw) || /\.(?:info|lcov)$/i.test(relativePath);
+  let fileMap: Record<string, unknown> | null;
+  if (looksLikeLcov) {
+    fileMap = parseLcov(raw);
+  } else {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      throw new Error(`Invalid JSON in ${relativePath}`);
+    }
+    const root = asRecord(parsed);
+    if (!root) {
+      return { available: false, gaps: [], threshold, filesConsidered: 0 };
+    }
+    fileMap =
+      asRecord(root.files) ??
+      asRecord(root.coverage) ??
+      (Array.isArray(root) ? null : root);
   }
-  const root = asRecord(parsed);
-  if (!root) {
-    return { available: false, gaps: [], threshold, filesConsidered: 0 };
-  }
-
-  const fileMap =
-    asRecord(root.files) ??
-    asRecord(root.coverage) ??
-    (Array.isArray(root) ? null : root);
 
   const gaps: CoverageGap[] = [];
   let filesConsidered = 0;

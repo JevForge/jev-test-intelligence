@@ -1,5 +1,5 @@
-import type { JevProvider } from '../jev/contract.js';
-import { isSchemaRejected, unavailableDecision } from '../jev/normalize.js';
+import type { JevProvider } from '../jev/core/index.js';
+import { isSchemaRejected, unavailableDecision } from '../jev/core/index.js';
 import type { LowConfidencePolicy } from '../schemas/enums.js';
 import type { GroupDefinition } from '../schemas/intelligence.js';
 import type { HistorySummary } from '../collectors/history.js';

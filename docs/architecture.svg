@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="220" viewBox="0 0 960 220" role="img" aria-labelledby="title desc">
+  <title id="title">JEV Test Intelligence decision flow</title>
+  <desc id="desc">GitHub event and optional evidence flow through typed Jev, policy validation, and safe test group outputs.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#3157a6"/></marker>
+    <style>
+      .box { fill: #f4f7ff; stroke: #3157a6; stroke-width: 2; rx: 12; }
+      .label { fill: #172033; font: 600 16px system-ui, sans-serif; text-anchor: middle; }
+      .sub { fill: #52627d; font: 13px system-ui, sans-serif; text-anchor: middle; }
+      .arrow { stroke: #3157a6; stroke-width: 2.5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="box" x="20" y="72" width="150" height="76"/><text class="label" x="95" y="103">GitHub event</text><text class="sub" x="95" y="126">PR / push / paths</text>
+  <line class="arrow" x1="170" y1="110" x2="205" y2="110"/>
+  <rect class="box" x="205" y="72" width="170" height="76"/><text class="label" x="290" y="103">Evidence</text><text class="sub" x="290" y="126">history · coverage · mono</text>
+  <line class="arrow" x1="375" y1="110" x2="410" y2="110"/>
+  <rect class="box" x="410" y="72" width="150" height="76"/><text class="label" x="485" y="103">Typed Jev</text><text class="sub" x="485" y="126">or deterministic</text>
+  <line class="arrow" x1="560" y1="110" x2="595" y2="110"/>
+  <rect class="box" x="595" y="72" width="150" height="76"/><text class="label" x="670" y="103">Policy</text><text class="sub" x="670" y="126">allowlist + needs</text>
+  <line class="arrow" x1="745" y1="110" x2="780" y2="110"/>
+  <rect class="box" x="780" y="72" width="160" height="76"/><text class="label" x="860" y="103">Outputs</text><text class="sub" x="860" y="126">groups · matrix · plan</text>
+</svg>

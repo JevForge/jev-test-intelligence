@@ -55,8 +55,13 @@ describe('decision cache keys', () => {
     const a = buildCacheKey(base);
     const b = buildCacheKey({ ...base, paths: ['src/b.ts', 'src/a.ts'] });
     const c = buildCacheKey({ ...base, paths: ['docs/a.md'] });
+    const d = buildCacheKey({
+      ...base,
+      monorepoPlan: { affected_projects: ['packages/api'] },
+    });
     expect(a).toBe(b);
     expect(a).not.toBe(c);
+    expect(a).not.toBe(d);
     expect(a.startsWith('jev-ti-v1-')).toBe(true);
   });
 });

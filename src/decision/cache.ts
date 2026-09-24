@@ -49,6 +49,7 @@ export function buildCacheKey(parts: {
   paths: string[];
   provider: JevProviderId | string;
   decisionMode: DecisionMode | string;
+  monorepoPlan?: unknown;
 }): string {
   const hash = createHash('sha256')
     .update(
@@ -57,6 +58,7 @@ export function buildCacheKey(parts: {
         paths: [...parts.paths].sort(),
         provider: parts.provider,
         mode: parts.decisionMode,
+        monorepoPlan: parts.monorepoPlan ?? null,
       }),
     )
     .digest('hex')
