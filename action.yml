@@ -71,7 +71,7 @@ inputs:
     required: false
     default: ''
   history_group_id_map:
-    description: Optional JSON object mapping GitHub Actions job display names to allowlisted group ids (name→id). Prefer when workflow jobs use a custom name: field.
+    description: Optional JSON object mapping GitHub Actions job display names to allowlisted group ids.
     required: false
     default: ''
   coverage_path:
