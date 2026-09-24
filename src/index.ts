@@ -7,6 +7,7 @@ const names = [
   'changed_paths',
   'group_map',
   'component_map',
+  'monorepo_plan',
   'jev_provider',
   'jev_model',
   'jev_endpoint',
@@ -20,6 +21,7 @@ const names = [
   'history_lookback',
   'history_branch',
   'history_group_id_map',
+  'job_id_map',
   'coverage_path',
   'coverage_threshold',
   'discover_frameworks',
@@ -31,6 +33,7 @@ const names = [
   'comment_on_github',
   'create_check_run',
   'telemetry',
+  'telemetry_artifact_path',
   'token',
   'dry_run',
 ] as const;

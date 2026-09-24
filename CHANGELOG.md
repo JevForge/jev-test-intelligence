@@ -8,6 +8,21 @@ All notable changes to this project are documented in this file.
 
 * (pending next releases)
 
+## [0.1.7] â€” 2026-09-24
+
+### Added
+
+* `monorepo_plan` hand-off from Monorepo Navigator, with allowlisted group union and dependency closure.
+* `job_id_map` alias for custom Actions job display names; `history_group_id_map` remains supported.
+* LCOV coverage support alongside Istanbul JSON.
+* Suggest-only `recommended_command` output, safe command filtering, and a print-only workflow example.
+* Stable telemetry `adapter_count` and optional path-free JSON debug artifact.
+* Extraction-ready `src/jev/core` boundary and architecture SVG for Marketplace documentation.
+
+### Fixed
+
+* Composite metadata now re-exports the new monorepo, recommendation, and telemetry contracts.
+
 ## [0.1.4] — TBD
 
 ### Added

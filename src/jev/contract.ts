@@ -1,8 +1,7 @@
 /**
  * Local Jev provider contract for Test Intelligence.
  *
- * When `@jevforge/core` is published, swap adapters to import `JevProvider`
- * from that package instead of this module.
+ * Compatibility module. New orchestration code should import from `./core`.
  */
 import type { JevProviderId } from '../schemas/enums.js';
 import type { IntelligenceDecision } from '../schemas/intelligence.js';

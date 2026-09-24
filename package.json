@@ -1,6 +1,6 @@
 {
   "name": "jev-test-intelligence",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Select which allowlisted test groups to run after a change. Jev decides; your workflow stays in control.",
   "private": true,
   "type": "module",
@@ -33,9 +33,9 @@
   },
   "homepage": "https://github.com/JevForge/jev-test-intelligence#readme",
   "dependencies": {
-    "@actions/cache": "^4.1.0",
-    "@actions/core": "^1.11.1",
-    "@actions/github": "^6.0.1",
+    "@actions/cache": "^6.2.0",
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1",
     "ai": "^7.0.113",
     "yaml": "^2.8.1",
     "zod": "^3.25.76"

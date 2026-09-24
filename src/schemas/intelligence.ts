@@ -30,6 +30,22 @@ export const ComponentMapSchema = z.object({
 
 export type ComponentMap = z.infer<typeof ComponentMapSchema>;
 
+export const MonorepoPlanSchema = z.object({
+  plan_version: z.literal(1).optional(),
+  affected_projects: z.array(z.string().min(1).max(128)).max(200).default([]),
+  execution_plan: z
+    .array(
+      z.object({
+        project: z.string().min(1).max(128),
+        jobs: z.array(z.string().min(1).max(80)).max(50),
+      }),
+    )
+    .max(200)
+    .optional(),
+});
+
+export type MonorepoPlan = z.infer<typeof MonorepoPlanSchema>;
+
 export const IntelligenceConfigSchema = z.object({
   version: z.literal(1).default(1),
   groups: z.array(GroupConfigSchema).min(1).max(64),

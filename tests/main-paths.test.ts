@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
@@ -113,6 +113,45 @@ describe('main action paths', () => {
     expect(io.failed).toMatch(/Test Intelligence/);
   });
 
+  it('uses a configured HTTP Jev provider and keeps the typed selection', async () => {
+    const workspace = workspaceWith({ '.jev/test-intelligence.yml': baseConfig() });
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          answers: {
+            group_0: { type: 'boolean', probability: 0.9 },
+            group_1: { type: 'boolean', probability: 0.1 },
+            abstain: { type: 'boolean', probability: 0.1 },
+            request_review: { type: 'boolean', probability: 0.1 },
+            run_all: { type: 'boolean', probability: 0.1 },
+          },
+          confidence: { group_0: 0.9 },
+        };
+      },
+    })) as unknown as typeof fetch;
+    const io = createIo(workspace, {
+      inputs: {
+        config_path: '.jev/test-intelligence.yml',
+        changed_paths: 'README.md',
+        decision_mode: 'jev',
+        jev_provider: 'custom-compatible',
+        jev_endpoint: 'https://api.example.com/jev',
+        jev_model: 'test-model',
+        low_confidence_policy: 'fail',
+        require_path_hits: 'false',
+        discover_frameworks: 'false',
+      },
+      env: { JEV_CUSTOM_API_KEY: 'test-key' },
+      fetch: fetchImpl,
+    });
+    await runAction(io);
+    expect(io.failed).toBeUndefined();
+    expect(io.outputs.provisional).toBe('false');
+    expect(JSON.parse(io.outputs.selected_test_groups!)).toEqual(['unit']);
+  });
+
   it('emits telemetry without secrets', async () => {
     const workspace = workspaceWith({ '.jev/test-intelligence.yml': baseConfig() });
     const io = createIo(workspace, {
@@ -126,6 +165,29 @@ describe('main action paths', () => {
     });
     await runAction(io);
     expect(io.infos.some(line => line.includes('jev_test_intelligence_telemetry'))).toBe(true);
+  });
+
+  it('writes an opt-in path-free telemetry artifact', async () => {
+    const workspace = workspaceWith({ '.jev/test-intelligence.yml': baseConfig() });
+    const io = createIo(workspace, {
+      inputs: {
+        config_path: '.jev/test-intelligence.yml',
+        changed_paths: 'src/a.ts',
+        decision_mode: 'deterministic',
+        telemetry: 'true',
+        telemetry_artifact_path: '.jev/debug/telemetry.json',
+        discover_frameworks: 'false',
+      },
+    });
+    await runAction(io);
+    const artifact = JSON.parse(readFileSync(join(workspace, '.jev/debug/telemetry.json'), 'utf8')) as Record<string, unknown>;
+    expect(artifact).toMatchObject({
+      provider: 'vercel-ai-gateway',
+      selected_count: 1,
+      provisional: true,
+      adapter_count: 0,
+    });
+    expect(JSON.stringify(artifact)).not.toContain('src/a.ts');
   });
 
   it('collects PR changed paths via GitHub API', async () => {
@@ -150,6 +212,24 @@ describe('main action paths', () => {
     });
     await runAction(io);
     expect(JSON.parse(io.outputs.affected_paths!)).toContain('src/auth.ts');
+  });
+
+  it('collects changed paths from a push payload', async () => {
+    const workspace = workspaceWith({ '.jev/test-intelligence.yml': baseConfig() });
+    const io = createIo(workspace, {
+      inputs: {
+        config_path: '.jev/test-intelligence.yml',
+        changed_paths: '',
+        decision_mode: 'deterministic',
+        discover_frameworks: 'false',
+      },
+      eventName: 'push',
+      payload: {
+        commits: [{ added: ['src/push.ts'], modified: ['README.md'], removed: [] }],
+      },
+    });
+    await runAction(io);
+    expect(JSON.parse(io.outputs.affected_paths!)).toEqual(['src/push.ts', 'README.md']);
   });
 
   it('upserts PR comment and creates check run when enabled', async () => {
@@ -206,6 +286,66 @@ describe('main action paths', () => {
     await runAction(io);
     expect(JSON.parse(io.outputs.history_applied!)).toContain('unit');
     expect(JSON.parse(io.outputs.selected_test_groups!)).toContain('unit');
+  });
+
+  it('unions groups from a Monorepo Navigator plan', async () => {
+    const workspace = workspaceWith({
+      '.jev/test-intelligence.yml': `${baseConfig()}\ncomponents:\n  - name: '@acme/web'\n    paths: [apps/web/**]\n    groups: [unit, e2e]\n`,
+    });
+    const io = createIo(workspace, {
+      inputs: {
+        config_path: '.jev/test-intelligence.yml',
+        changed_paths: 'README.md',
+        decision_mode: 'deterministic',
+        require_path_hits: 'false',
+        monorepo_plan: JSON.stringify({
+          plan_version: 1,
+          affected_projects: ['@acme/web'],
+          execution_plan: [{ project: '@acme/web', jobs: ['e2e'] }],
+        }),
+        discover_frameworks: 'false',
+      },
+    });
+    await runAction(io);
+    expect(JSON.parse(io.outputs.selected_test_groups!)).toEqual(['unit', 'e2e']);
+    expect(JSON.parse(io.outputs.monorepo_affected_projects!)).toEqual(['@acme/web']);
+  });
+
+  it('maps Actions display names through job_id_map', async () => {
+    const workspace = workspaceWith({ '.jev/test-intelligence.yml': baseConfig() });
+    const fetchImpl = vi.fn(async (url: string) => {
+      if (url.includes('/actions/runs?')) {
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { workflow_runs: [{ id: 41, head_branch: 'main', conclusion: 'failure' }] };
+          },
+        } as Response;
+      }
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return { jobs: [{ name: 'Unit tests', conclusion: 'failure' }] };
+        },
+      } as Response;
+    }) as unknown as typeof fetch;
+    const io = createIo(workspace, {
+      inputs: {
+        config_path: '.jev/test-intelligence.yml',
+        changed_paths: 'README.md',
+        decision_mode: 'deterministic',
+        include_history: 'true',
+        require_path_hits: 'false',
+        job_id_map: '{"Unit tests":"unit"}',
+        discover_frameworks: 'false',
+        token: 't',
+      },
+      fetch: fetchImpl,
+    });
+    await runAction(io);
+    expect(JSON.parse(io.outputs.history_applied!)).toEqual(['unit']);
   });
 
   it('surfaces config errors via setFailed', async () => {

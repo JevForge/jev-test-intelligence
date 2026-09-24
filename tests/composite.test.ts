@@ -7,6 +7,9 @@ describe('composite wrapper', () => {
     expect(raw).toContain('uses: actions/checkout@v4');
     expect(raw).toContain('uses: JevForge/jev-test-intelligence@v0');
     expect(raw).toContain('steps.ti.outputs.selected_test_groups');
+    expect(raw).toContain('steps.ti.outputs.recommended_command');
+    expect(raw).toContain('steps.ti.outputs.monorepo_affected_projects');
+    expect(raw).toContain('monorepo_plan: ${{ inputs.monorepo_plan }}');
     expect(raw).toContain('id: ti');
   });
 });
